@@ -1,5 +1,3 @@
-import React from 'react';
-
 function App() {
   // TODO: Replace these with your actual information
   const personalInfo = {
