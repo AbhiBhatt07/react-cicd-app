@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-cicd-app
+  labels:
+    app: react-cicd-app
+    version: v1
+spec:
+  replicas: 2 # Run 2 instances for high availability
+  selector:
+    matchLables:
+      app: react-cicd-app
+  template:
+    metadata:
+      labels:
+        app: react-cicd-app
+        version: v1
+    spec:
+      containers:
+        - name: react-cicd-app
+          image: abhishekbhatt0/react-cicd-app:latest
+          ports:
+            - containerPort: 80
+              name: http
+          # resource limits for better performance
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+            # Health checks
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initiaDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initiaDelaySeconds: 5
+            periodSeconds: 5
+          # Environment variables
+          env:
+            - name: NODE_ENV
+              value: "production"
+
+---
+# Service to expose the deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: react-cicd-app
+  labels:
+    app: react-cicd-app
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: react-cicd-app

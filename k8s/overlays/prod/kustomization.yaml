@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base resources
+resources:
+  - ../../base
+
+# Production-specific settings
+namePrefix: prod-
+namespace: react-cicd-prod
+
+# Image tag for production
+images:
+  - name: abhishekbhatt0/react-cicd-app
+    newTag: latest
+
+# Production replica count (higher for availability)
+replicas:
+  - name: react-cicd-app
+    count: 3
+
+# Production-specific resource limits
+patches:
+  - target:
+      kind: Deployment
+      name: react-cicd-app
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "256Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1000m"

@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1betal
+kind: Kustomization
+
+# Base resources
+resources:
+  - ../../base
+
+namePrefix: dev-
+namespace: react-cicd-dev
+
+# Image tag for development
+images:
+  - name: abhishekbhatt0/react-cicd-app
+    newTag: dev
+
+# Replicas count for development
+replicas:
+  - name: react-cicd-app
+    count: 1
+
+# Development specific patches
+patches:
+  - target:
+      kind: Service
+      name: react-cicd-service
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: NodePort
