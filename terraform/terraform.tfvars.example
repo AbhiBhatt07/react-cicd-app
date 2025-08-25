@@ -1,6 +1,0 @@
-# Copy this to terraform.tfvars and fill in your values
-dockerhub_username = "abhishekbhatt0"
-dockerhub_password = "Wellcome@docker&07"
-dockerhub_email    = "abhibhatt587@gmail.com"
-app_name           = "React_cicd_app"
-environment        = "dev"
