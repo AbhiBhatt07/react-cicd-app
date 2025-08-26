@@ -3,7 +3,8 @@ kind: Kustomization
 
 # Base resources
 resources:
-  - ../../base
+  - ../../base/deployment.yaml
+  - ../../base/configmap.yaml
 
 namePrefix: dev-
 namespace: react-cicd-dev
