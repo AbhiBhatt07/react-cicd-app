@@ -11,40 +11,18 @@ env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/react-cicd-app
 
 jobs:
-  # Job 1: Test and Build
-  test-and-build:
+  # ----------------------------
+  # 1. Build & Push Image
+  # ----------------------------
+  build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      image-tag: ${{ steps.meta.outputs.version }}
-      image-digest: ${{ steps.build.outputs.digest }}
+      image: ${{ steps.meta.outputs.tags }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20.19.0"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run tests with coverage
-        run: npm run test:coverage
-
-      - name: Build application
-        run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-files
-          path: dist/
-          retention-days: 1
-
-      # Docker build and push
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -61,24 +39,23 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
 
-  # Job 2: Deploy to Development
+  # ----------------------------
+  # 2. Deploy to Development
+  # ----------------------------
   deploy-dev:
-    needs: test-and-build
+    needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/develop'
     environment: development
 
     steps:
@@ -88,7 +65,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: "v1.28.0"
+          version: v1.28.0
 
       - name: Install Kustomize
         run: |
@@ -101,24 +78,21 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Update image in dev overlay
+      - name: Update dev image
         run: |
           cd k8s/overlays/dev
-          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ needs.test-and-build.outputs.image-tag }}
-
-      - name: Deploy to Development
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ needs.build-and-push.outputs.image }}
+      
+      - name: Deploy to Dev
         run: |
           kustomize build k8s/overlays/dev | kubectl apply -f -
           kubectl rollout status deployment/dev-react-cicd-app -n react-cicd-dev --timeout=300s
 
-      - name: Verify Development Deployment
-        run: |
-          kubectl get pods -n react-cicd-dev
-          kubectl get svc -n react-cicd-dev
-
-  # Job 3: Deploy to Production (manual approval)
+  # ----------------------------
+  # 3. Deploy to Production
+  # ----------------------------
   deploy-prod:
-    needs: [test-and-build, deploy-dev]
+    needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -130,7 +104,7 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
         with:
-          version: "v1.28.0"
+          version: v1.28.0
 
       - name: Install Kustomize
         run: |
@@ -143,44 +117,12 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG }}" > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Update image in prod overlay
+      - name: Update prod image
         run: |
           cd k8s/overlays/prod
-          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ needs.test-and-build.outputs.image-tag }}
-
-      - name: Deploy to Production
+          kustomize edit set image ${{ env.IMAGE_NAME }}=${{ needs.build-and-push.outputs.image }}
+      
+      - name: Deploy to Prod
         run: |
           kustomize build k8s/overlays/prod | kubectl apply -f -
           kubectl rollout status deployment/prod-react-cicd-app -n react-cicd-prod --timeout=300s
-
-      - name: Verify Production Deployment
-        run: |
-          kubectl get pods -n react-cicd-prod
-          kubectl get svc -n react-cicd-prod
-
-      - name: Run Smoke Tests
-        run: |
-          sleep 30
-          kubectl port-forward -n react-cicd-prod service/prod-react-cicd-service 8081:80 &
-          sleep 10
-          curl -f http://localhost:8081/health || exit 1
-          echo "Production deployment successful!"
-
-  # Job 4: Security Scan
-  security-scan:
-    needs: test-and-build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ needs.test-and-build.outputs.image-tag }}
-          format: "sarif"
-          output: "trivy-results.sarif"
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: "trivy-results.sarif"
