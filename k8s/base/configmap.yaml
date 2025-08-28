@@ -5,37 +5,31 @@ metadata:
   labels:
     app: react-cicd-app
 data:
-  # Nginx configuration for better performance
   nginx.conf: |
     server {
         listen 80;
         server_name localhost;
         root /usr/share/nginx/html;
         index index.html;
-        
-        # Gzip compression
+
         gzip on;
         gzip_types text/css application/javascript text/javascript application/json;
-        
-        # Cache static assets
+
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
         }
-        
-        # Handle React Router (SPA)
+
         location / {
             try_files $uri $uri/ /index.html;
         }
-        
-        # Health check endpoint
+
         location /health {
             access_log off;
             return 200 "healthy\n";
         }
     }
 
-  # Application configuration
   app.env: |
     REACT_APP_ENV=production
     REACT_APP_VERSION=1.0.0

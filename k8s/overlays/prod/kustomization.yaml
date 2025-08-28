@@ -19,15 +19,6 @@ replicas:
   - name: react-cicd-app
     count: 3
 
-# Production-specific resource limits
-patches:
-  - target:
-      kind: Deployment
-      name: react-cicd-app
-    patch: |-
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/memory
-        value: "256Mi"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: "1000m"
+# Production-specific resource limits (Strategic Merge Patch)
+patchesStrategicMerge:
+  - prod-deployment-patch.yaml

@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-cicd-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: react-cicd-app
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
